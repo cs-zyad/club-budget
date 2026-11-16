@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // النظام لمدير واحد: كل حساب مسجل (ينشئه المدير من لوحة Firebase) له صلاحية كاملة.
+    // لا توجد صفحة تسجيل حساب جديد، وأي شخص غير مسجل لا يقرأ ولا يكتب شيئاً.
+    match /items/{id} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.data.name is string
+        && request.resource.data.allocated is number
+        && request.resource.data.allocated >= 0;
+      allow delete: if false;
+    }
+    match /transactions/{id} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.data.kind in ['expense', 'income']
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0;
+      allow delete: if request.auth != null;
+    }
+  }
+}
