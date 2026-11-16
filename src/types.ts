@@ -1,8 +1,18 @@
+export interface AllocationChange {
+  at: number
+  by: string
+  from: number
+  to: number
+  note: string
+}
+
 export interface BudgetItem {
   id: string
   name: string
   allocated: number
   order: number
+  /** سجل تعديلات الحصة (إنشاء، تعديل، نقل) */
+  history?: AllocationChange[]
 }
 
 export type TxKind = 'expense' | 'income'
@@ -24,4 +34,3 @@ export interface Tx {
 }
 
 export type TxInput = Omit<Tx, 'id' | 'createdAt' | 'createdBy'> & { id?: string }
-export type ItemInput = Omit<BudgetItem, 'id'> & { id?: string }

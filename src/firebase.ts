@@ -25,7 +25,8 @@ const config = {
 }
 
 /** إذا لم تُضبط إعدادات Firebase يعمل النظام بوضع تجريبي محلي (بيانات في المتصفح فقط). */
-export const firebaseReady = Boolean(config.apiKey && config.projectId && config.appId)
+// VITE_DEMO=1 يفرض الوضع التجريبي (للاختبار دون لمس البيانات الحقيقية).
+export const firebaseReady = env.VITE_DEMO !== '1' && Boolean(config.apiKey && config.projectId && config.appId)
 
 const app = firebaseReady ? initializeApp(config) : null
 export const auth = app ? getAuth(app) : null

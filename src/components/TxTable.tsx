@@ -1,69 +1,90 @@
+import { Pencil, Trash2 } from 'lucide-react'
 import { db } from '../data/db'
+import { fmtDate, sar } from '../lib/format'
 import type { Tx } from '../types'
+import { useFeedback } from './feedback'
 import { Money } from './ui'
 
 interface Props {
   txs: Tx[]
-  itemName?: (id: string | null) => string | null
+  /** يعرض عمود البند (أسماء البنود حسب المعرّف) */
+  itemNames?: Map<string, string>
+  showKind?: boolean
   onEdit(tx: Tx): void
-  empty: string
 }
 
-export function TxTable({ txs, itemName, onEdit, empty }: Props) {
-  if (txs.length === 0) return <p className="empty">{empty}</p>
+export function TxTable({ txs, itemNames, showKind, onEdit }: Props) {
+  const { confirm, toast } = useFeedback()
   const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt)
 
   async function remove(tx: Tx) {
-    if (!window.confirm(`حذف «${tx.description}»؟ لا يمكن التراجع عن الحذف.`)) return
+    const ok = await confirm({
+      title: 'حذف العملية',
+      body: (
+        <>
+          سيتم حذف «{tx.description}» بمبلغ <bdi className="num">{sar(tx.amount)}</bdi> نهائياً، ولا يمكن التراجع.
+        </>
+      ),
+      confirmText: 'حذف',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await db.removeTx(tx.id)
+      toast('تم حذف العملية')
     } catch {
-      window.alert('تعذر الحذف. تأكد من الاتصال وصلاحيات الحساب.')
+      toast('تعذر الحذف، تأكد من الاتصال', 'bad')
     }
   }
 
   return (
     <div className="table-wrap">
-      <table>
+      <table className="tx-table">
         <thead>
           <tr>
             <th>التاريخ</th>
             <th>الوصف</th>
-            {itemName && <th>البند</th>}
-            <th>الجهة</th>
-            <th>الفاتورة</th>
-            <th>التصنيف</th>
+            {itemNames && <th>البند</th>}
+            <th className="hide-sm">الجهة</th>
+            <th className="hide-sm">الفاتورة</th>
+            <th className="hide-sm">التصنيف</th>
             <th className="end">المبلغ</th>
-            <th aria-label="إجراءات" />
+            <th className="end" aria-label="إجراءات" />
           </tr>
         </thead>
         <tbody>
-          {sorted.map((t) => (
-            <tr key={t.id}>
-              <td className="nowrap">
-                <bdi className="num">{t.date}</bdi>
-              </td>
-              <td>
-                {t.description}
-                {t.notes && <div className="muted small">{t.notes}</div>}
-              </td>
-              {itemName && <td>{itemName(t.itemId) ?? '—'}</td>}
-              <td>{t.party || '—'}</td>
-              <td>{t.invoiceNo ? <bdi className="num">{t.invoiceNo}</bdi> : '—'}</td>
-              <td>{t.category || '—'}</td>
-              <td className="end nowrap strong">
-                <Money value={t.amount} />
-              </td>
-              <td className="nowrap">
-                <button className="link" onClick={() => onEdit(t)}>
-                  تعديل
-                </button>
-                <button className="link danger" onClick={() => remove(t)}>
-                  حذف
-                </button>
-              </td>
-            </tr>
-          ))}
+          {sorted.map((t) => {
+            const income = t.kind === 'income'
+            return (
+              <tr key={t.id}>
+                <td className="nowrap muted">
+                  <bdi className="num">{fmtDate(t.date)}</bdi>
+                </td>
+                <td>
+                  <div className="cell-title">
+                    {showKind && <span className={`kind ${t.kind}`}>{income ? 'إيراد' : 'مصروف'}</span>}
+                    {t.description}
+                  </div>
+                  {t.notes && <div className="muted small">{t.notes}</div>}
+                </td>
+                {itemNames && <td>{t.itemId ? (itemNames.get(t.itemId) ?? '—') : <span className="muted">—</span>}</td>}
+                <td className="hide-sm">{t.party || <span className="muted">—</span>}</td>
+                <td className="hide-sm">{t.invoiceNo ? <bdi className="num">{t.invoiceNo}</bdi> : <span className="muted">—</span>}</td>
+                <td className="hide-sm">{t.category ? <span className="chip">{t.category}</span> : <span className="muted">—</span>}</td>
+                <td className={`end nowrap strong ${income ? 'good-text' : ''}`}>
+                  <Money value={t.amount} signed={income} />
+                </td>
+                <td className="end nowrap">
+                  <button className="icon-btn sm" onClick={() => onEdit(t)} aria-label={`تعديل ${t.description}`} title="تعديل">
+                    <Pencil size={16} />
+                  </button>
+                  <button className="icon-btn sm danger" onClick={() => remove(t)} aria-label={`حذف ${t.description}`} title="حذف">
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
