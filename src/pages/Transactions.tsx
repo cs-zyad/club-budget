@@ -46,7 +46,7 @@ export function Transactions() {
       (kind === 'all' || t.kind === kind) &&
       (!itemId || t.itemId === itemId) &&
       (!month || t.date.startsWith(month)) &&
-      (!term || [t.description, t.party, t.invoiceNo, t.category, t.notes].some((f) => f.includes(term))),
+      (!term || [t.description, t.party, t.invoiceNo, t.category, t.notes, t.recordedBy ?? ''].some((f) => f.includes(term))),
   )
   const sumOf = (k: TxKind) => filtered.filter((t) => t.kind === k).reduce((s, t) => s + t.amount, 0)
   const isFiltered = kind !== 'all' || itemId || month || term
@@ -103,7 +103,7 @@ export function Transactions() {
         </select>
         <label className="search grow">
           <Search size={16} aria-hidden />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالوصف أو الجهة أو رقم الفاتورة" aria-label="بحث" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالوصف أو الجهة أو الفاتورة أو المسجِّل" aria-label="بحث" />
         </label>
         {isFiltered && (
           <button

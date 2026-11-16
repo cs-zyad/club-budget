@@ -29,6 +29,8 @@ export interface Tx {
   amount: number
   category: string
   notes: string
+  /** اسم الشخص الذي سجّل العملية (يُكتب يدوياً) */
+  recordedBy?: string
   createdAt: number
   createdBy: string
 }

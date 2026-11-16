@@ -48,6 +48,7 @@ export function TxTable({ txs, itemNames, showKind, onEdit }: Props) {
             <th className="hide-sm">الجهة</th>
             <th className="hide-sm">الفاتورة</th>
             <th className="hide-sm">التصنيف</th>
+            <th className="hide-sm">المسجِّل</th>
             <th className="end">المبلغ</th>
             <th className="end" aria-label="إجراءات" />
           </tr>
@@ -71,6 +72,7 @@ export function TxTable({ txs, itemNames, showKind, onEdit }: Props) {
                 <td className="hide-sm">{t.party || <span className="muted">—</span>}</td>
                 <td className="hide-sm">{t.invoiceNo ? <bdi className="num">{t.invoiceNo}</bdi> : <span className="muted">—</span>}</td>
                 <td className="hide-sm">{t.category ? <span className="chip">{t.category}</span> : <span className="muted">—</span>}</td>
+                <td className="hide-sm">{t.recordedBy || <span className="muted">—</span>}</td>
                 <td className={`end nowrap strong ${income ? 'good-text' : ''}`}>
                   <Money value={t.amount} signed={income} />
                 </td>

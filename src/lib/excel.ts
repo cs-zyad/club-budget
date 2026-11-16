@@ -61,6 +61,7 @@ export async function exportWorkbook(stats: Stats, txs: Tx[]): Promise<void> {
       { header: 'رقم الفاتورة', key: 'invoiceNo', width: 16 },
       { header: 'التصنيف', key: 'category', width: 18 },
       { header: 'المبلغ', key: 'amount', width: 16, style: { numFmt: MONEY } },
+      { header: 'المسجِّل', key: 'recordedBy', width: 18 },
       { header: 'ملاحظات', key: 'notes', width: 30 },
     ]
     styleHeader(ws)

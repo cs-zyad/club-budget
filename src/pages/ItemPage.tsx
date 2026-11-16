@@ -31,7 +31,7 @@ export function ItemPage() {
   const own = txs.filter((t) => t.kind === 'expense' && t.itemId === row.id)
   const term = q.trim()
   const shown = term
-    ? own.filter((t) => [t.description, t.party, t.invoiceNo, t.category, t.notes].some((f) => f.includes(term)))
+    ? own.filter((t) => [t.description, t.party, t.invoiceNo, t.category, t.notes, t.recordedBy ?? ''].some((f) => f.includes(term)))
     : own
   const history = [...(row.history ?? [])].sort((a, b) => b.at - a.at)
   const close = () => setDialog(null)

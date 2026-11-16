@@ -4,6 +4,15 @@ import { useBudget } from '../data/budget'
 import { db } from '../data/db'
 import { sar, today } from '../lib/format'
 import type { Tx, TxKind } from '../types'
+
+const RECORDER_KEY = 'club-budget-recorder'
+const lastRecorder = () => {
+  try {
+    return localStorage.getItem(RECORDER_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
 import { useFeedback } from './feedback'
 import { ErrorNote, FormActions, Modal, Num } from './ui'
 
@@ -28,6 +37,7 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
   const [invoiceNo, setInvoiceNo] = useState(editing?.invoiceNo ?? '')
   const [category, setCategory] = useState(editing?.category ?? '')
   const [notes, setNotes] = useState(editing?.notes ?? '')
+  const [recordedBy, setRecordedBy] = useState(editing ? (editing.recordedBy ?? '') : lastRecorder())
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,6 +56,7 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
     if (!description.trim()) return setError('اكتب وصف العملية')
     if (!Number.isFinite(value) || value <= 0) return setError('أدخل مبلغاً أكبر من صفر')
     if (isExpense && !itemId) return setError('اختر البند')
+    if (!recordedBy.trim()) return setError('اكتب اسم المسجِّل')
     setBusy(true)
     try {
       await db.saveTx(
@@ -59,10 +70,16 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
           invoiceNo: invoiceNo.trim(),
           category: category.trim(),
           notes: notes.trim(),
+          recordedBy: recordedBy.trim(),
           amount: Math.round(value * 100) / 100,
         },
         user?.uid ?? '',
       )
+      try {
+        localStorage.setItem(RECORDER_KEY, recordedBy.trim())
+      } catch {
+        /* التخزين غير متاح */
+      }
       toast(editing ? 'تم حفظ التعديل' : isExpense ? 'تم تسجيل المصروف' : 'تم تسجيل الإيراد')
       onClose()
     } catch {
@@ -77,7 +94,9 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
       <form onSubmit={submit} className="form">
         <div className="grid2">
           <label>
-            المبلغ (ر.س) <span className="req">*</span>
+            <span className="lbl">
+              المبلغ (ر.س) <span className="req">*</span>
+            </span>
             <input
               type="number"
               inputMode="decimal"
@@ -91,13 +110,17 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
             />
           </label>
           <label>
-            التاريخ <span className="req">*</span>
+            <span className="lbl">
+              التاريخ <span className="req">*</span>
+            </span>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
           </label>
         </div>
         {isExpense && (
           <label>
-            البند <span className="req">*</span>
+            <span className="lbl">
+              البند <span className="req">*</span>
+            </span>
             <select value={itemId} onChange={(e) => setItemId(e.target.value)} required>
               {rows.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -108,7 +131,9 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
           </label>
         )}
         <label>
-          {isExpense ? 'الوصف' : 'مصدر الإيراد'} <span className="req">*</span>
+          <span className="lbl">
+            {isExpense ? 'الوصف' : 'مصدر الإيراد'} <span className="req">*</span>
+          </span>
           <input
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -139,6 +164,12 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
               <option key={c} value={c} />
             ))}
           </datalist>
+        </label>
+        <label>
+          <span className="lbl">
+            اسم المسجِّل <span className="req">*</span>
+          </span>
+          <input value={recordedBy} onChange={(e) => setRecordedBy(e.target.value)} required placeholder="اسمك" autoComplete="name" />
         </label>
         <label>
           ملاحظات

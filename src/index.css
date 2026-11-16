@@ -85,6 +85,9 @@ a:hover {
 .req {
   color: var(--red);
 }
+.lbl {
+  display: inline;
+}
 .boot {
   min-height: 100vh;
   display: grid;
