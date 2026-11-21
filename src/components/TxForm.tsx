@@ -60,38 +60,39 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
     if (isExpense && !itemId) return setError('اختر البند')
     if (!recordedBy.trim()) return setError('اكتب اسم المسجِّل')
     setBusy(true)
+    const data = {
+      id: editing?.id,
+      kind,
+      itemId: isExpense ? itemId : null,
+      date,
+      description: description.trim(),
+      party: party.trim(),
+      invoiceNo: invoiceNo.trim(),
+      category: category.trim(),
+      notes: notes.trim(),
+      recordedBy: recordedBy.trim(),
+      amount: Math.round(value * 100) / 100,
+    }
+    const uid = user?.uid ?? ''
+    const done = isExpense ? 'المصروف' : 'الإيراد'
     try {
-      await db.saveTx(
-        {
-          id: editing?.id,
-          kind,
-          itemId: isExpense ? itemId : null,
-          date,
-          description: description.trim(),
-          party: party.trim(),
-          invoiceNo: invoiceNo.trim(),
-          category: category.trim(),
-          notes: notes.trim(),
-          recordedBy: recordedBy.trim(),
-          amount: Math.round(value * 100) / 100,
-        },
-        user?.uid ?? '',
-        receipt,
-      )
+      try {
+        await db.saveTx(data, uid, receipt)
+        toast(editing ? 'تم حفظ التعديل' : `تم تسجيل ${done}`)
+      } catch (err) {
+        // إن رُفضت الفاتورة (قواعد Firebase غير محدّثة) نحفظ العملية نفسها دونها بدل رفض الحفظ كاملاً
+        if ((err as { code?: string })?.code !== 'permission-denied' || receipt === undefined) throw err
+        await db.saveTx(data, uid)
+        toast(`تم حفظ ${done} بدون الفاتورة — قواعد Firebase لا تسمح بالفواتير بعد`, 'bad')
+      }
       try {
         localStorage.setItem(RECORDER_KEY, recordedBy.trim())
       } catch {
         /* التخزين غير متاح */
       }
-      toast(editing ? 'تم حفظ التعديل' : isExpense ? 'تم تسجيل المصروف' : 'تم تسجيل الإيراد')
       onClose()
-    } catch (err) {
-      const denied = (err as { code?: string })?.code === 'permission-denied'
-      setError(
-        denied && receipt
-          ? 'تعذر حفظ صورة الفاتورة: قواعد الأمان في Firebase لم تُحدَّث بعد للسماح بالفواتير.'
-          : 'تعذر الحفظ. تأكد من الاتصال ثم أعد المحاولة.',
-      )
+    } catch {
+      setError('تعذر الحفظ. تأكد من الاتصال ثم أعد المحاولة.')
       setBusy(false)
     }
   }
