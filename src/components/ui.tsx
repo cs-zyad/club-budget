@@ -84,6 +84,9 @@ export function Empty({ icon, title, children }: { icon?: ReactNode; title: stri
   )
 }
 
+const modalStack: number[] = []
+let modalSeq = 0
+
 export function Modal({
   title,
   onClose,
@@ -100,12 +103,15 @@ export function Modal({
     closeRef.current = onClose
   })
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current()
+    const id = ++modalSeq
+    modalStack.push(id)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && modalStack[modalStack.length - 1] === id && closeRef.current()
     window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
       window.removeEventListener('keydown', onKey)
+      modalStack.splice(modalStack.indexOf(id), 1)
       document.body.style.overflow = prev
     }
   }, [])

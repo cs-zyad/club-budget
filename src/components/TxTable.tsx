@@ -1,8 +1,10 @@
-import { Pencil, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { Paperclip, Pencil, Trash2 } from 'lucide-react'
 import { db } from '../data/db'
 import { fmtDate, sar } from '../lib/format'
 import type { Tx } from '../types'
 import { useFeedback } from './feedback'
+import { ReceiptViewer } from './Receipt'
 import { Money } from './ui'
 
 interface Props {
@@ -15,6 +17,7 @@ interface Props {
 
 export function TxTable({ txs, itemNames, showKind, onEdit }: Props) {
   const { confirm, toast } = useFeedback()
+  const [viewing, setViewing] = useState<Tx | null>(null)
   const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt)
 
   async function remove(tx: Tx) {
@@ -30,7 +33,7 @@ export function TxTable({ txs, itemNames, showKind, onEdit }: Props) {
     })
     if (!ok) return
     try {
-      await db.removeTx(tx.id)
+      await db.removeTx(tx.id, tx.hasReceipt)
       toast('تم حذف العملية')
     } catch {
       toast('تعذر الحذف، تأكد من الاتصال', 'bad')
@@ -77,6 +80,11 @@ export function TxTable({ txs, itemNames, showKind, onEdit }: Props) {
                   <Money value={t.amount} signed={income} />
                 </td>
                 <td className="end nowrap">
+                  {t.hasReceipt && (
+                    <button className="icon-btn sm receipt-btn" onClick={() => setViewing(t)} aria-label={`عرض فاتورة ${t.description}`} title="عرض الفاتورة">
+                      <Paperclip size={16} />
+                    </button>
+                  )}
                   <button className="icon-btn sm" onClick={() => onEdit(t)} aria-label={`تعديل ${t.description}`} title="تعديل">
                     <Pencil size={16} />
                   </button>
@@ -89,6 +97,7 @@ export function TxTable({ txs, itemNames, showKind, onEdit }: Props) {
           })}
         </tbody>
       </table>
+      {viewing && <ReceiptViewer txId={viewing.id} title={viewing.description} onClose={() => setViewing(null)} />}
     </div>
   )
 }

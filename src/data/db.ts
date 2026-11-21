@@ -2,16 +2,15 @@ import {
   addDoc,
   arrayUnion,
   collection,
-  deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   serverTimestamp,
-  setDoc,
   updateDoc,
   writeBatch,
 } from 'firebase/firestore'
 import { firebaseReady, firestore } from '../firebase'
-import type { AllocationChange, BudgetItem, Tx, TxInput } from '../types'
+import type { AllocationChange, BudgetItem, Receipt, Tx, TxInput } from '../types'
 
 type Unsub = () => void
 const round = (n: number) => Math.round(n * 100) / 100
@@ -24,8 +23,10 @@ export interface Db {
   renameItem(id: string, name: string): Promise<void>
   setAllocation(item: BudgetItem, to: number, note: string, uid: string): Promise<void>
   transfer(from: BudgetItem, to: BudgetItem, amount: number, note: string, uid: string): Promise<void>
-  saveTx(tx: TxInput, uid: string): Promise<void>
-  removeTx(id: string): Promise<void>
+  /** receipt: undefined = بلا تغيير، null = إزالة الفاتورة، كائن = فاتورة جديدة */
+  saveTx(tx: TxInput, uid: string, receipt?: Receipt | null): Promise<void>
+  removeTx(id: string, hasReceipt?: boolean): Promise<void>
+  getReceipt(id: string): Promise<Receipt | null>
 }
 
 const change = (from: number, to: number, note: string, by: string): AllocationChange => ({
@@ -47,6 +48,7 @@ function firestoreDb(): Db {
   const fs = firestore!
   const items = collection(fs, 'items')
   const txs = collection(fs, 'transactions')
+  const receipts = collection(fs, 'receipts')
   return {
     watchItems: (cb, onError) =>
       onSnapshot(items, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BudgetItem, 'id'>) }))), onError),
@@ -99,12 +101,30 @@ function firestoreDb(): Db {
       })
       await batch.commit()
     },
-    async saveTx({ id, ...data }, uid) {
-      if (id) await setDoc(doc(txs, id), data, { merge: true })
-      else await addDoc(txs, { ...data, createdBy: uid, createdAt: serverTimestamp() })
+    async saveTx({ id, ...data }, uid, receipt) {
+      const batch = writeBatch(fs)
+      const ref = id ? doc(txs, id) : doc(txs)
+      const extra: { hasReceipt?: boolean } = {}
+      if (receipt) {
+        batch.set(doc(receipts, ref.id), receipt)
+        extra.hasReceipt = true
+      } else if (receipt === null) {
+        batch.delete(doc(receipts, ref.id))
+        extra.hasReceipt = false
+      }
+      if (id) batch.set(ref, { ...data, ...extra }, { merge: true })
+      else batch.set(ref, { ...data, hasReceipt: false, ...extra, createdBy: uid, createdAt: serverTimestamp() })
+      await batch.commit()
     },
-    async removeTx(id) {
-      await deleteDoc(doc(txs, id))
+    async removeTx(id, hasReceipt) {
+      const batch = writeBatch(fs)
+      batch.delete(doc(txs, id))
+      if (hasReceipt) batch.delete(doc(receipts, id))
+      await batch.commit()
+    },
+    async getReceipt(id) {
+      const snap = await getDoc(doc(receipts, id))
+      return snap.exists() ? (snap.data() as Receipt) : null
     },
   }
 }
@@ -113,6 +133,15 @@ function firestoreDb(): Db {
 
 const LS_ITEMS = 'club-budget-demo-items'
 const LS_TX = 'club-budget-demo-tx'
+const LS_RECEIPTS = 'club-budget-demo-receipts'
+
+function readReceipts(): Record<string, Receipt> {
+  try {
+    return JSON.parse(localStorage.getItem(LS_RECEIPTS) ?? '{}') as Record<string, Receipt>
+  } catch {
+    return {}
+  }
+}
 
 function readLS<T>(key: string): T[] {
   try {
@@ -185,11 +214,20 @@ function localDb(): Db {
         apply(all, to.id, to.allocated + amount, change(to.allocated, to.allocated + amount, n.in, uid))
       })
     },
-    async saveTx({ id, ...data }, user) {
+    async saveTx({ id, ...data }, user, receipt) {
       const all = readLS<Tx>(LS_TX)
-      const i = all.findIndex((x) => x.id === id)
-      if (i >= 0) all[i] = { ...all[i], ...data }
-      else all.push({ id: newId(), ...data, createdBy: user, createdAt: Date.now() })
+      const txId = id ?? newId()
+      const extra: { hasReceipt?: boolean } = {}
+      if (receipt !== undefined) {
+        const map = readReceipts()
+        if (receipt) map[txId] = receipt
+        else delete map[txId]
+        writeLS(LS_RECEIPTS, map)
+        extra.hasReceipt = Boolean(receipt)
+      }
+      const i = all.findIndex((x) => x.id === txId)
+      if (i >= 0) all[i] = { ...all[i], ...data, ...extra }
+      else all.push({ id: txId, ...data, hasReceipt: false, ...extra, createdBy: user, createdAt: Date.now() })
       writeLS(LS_TX, all)
       notify()
     },
@@ -198,7 +236,13 @@ function localDb(): Db {
         LS_TX,
         readLS<Tx>(LS_TX).filter((x) => x.id !== id),
       )
+      const map = readReceipts()
+      delete map[id]
+      writeLS(LS_RECEIPTS, map)
       notify()
+    },
+    async getReceipt(id) {
+      return readReceipts()[id] ?? null
     },
   }
 }

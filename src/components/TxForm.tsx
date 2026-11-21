@@ -3,7 +3,10 @@ import { useAuth } from '../auth'
 import { useBudget } from '../data/budget'
 import { db } from '../data/db'
 import { sar, today } from '../lib/format'
-import type { Tx, TxKind } from '../types'
+import type { Receipt, Tx, TxKind } from '../types'
+import { useFeedback } from './feedback'
+import { ReceiptField } from './Receipt'
+import { ErrorNote, FormActions, Modal, Num } from './ui'
 
 const RECORDER_KEY = 'club-budget-recorder'
 const lastRecorder = () => {
@@ -13,8 +16,6 @@ const lastRecorder = () => {
     return ''
   }
 }
-import { useFeedback } from './feedback'
-import { ErrorNote, FormActions, Modal, Num } from './ui'
 
 interface Props {
   kind: TxKind
@@ -39,6 +40,7 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
   const [notes, setNotes] = useState(editing?.notes ?? '')
   const [recordedBy, setRecordedBy] = useState(editing ? (editing.recordedBy ?? '') : lastRecorder())
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '')
+  const [receipt, setReceipt] = useState<Receipt | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -74,6 +76,7 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
           amount: Math.round(value * 100) / 100,
         },
         user?.uid ?? '',
+        receipt,
       )
       try {
         localStorage.setItem(RECORDER_KEY, recordedBy.trim())
@@ -82,8 +85,13 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
       }
       toast(editing ? 'تم حفظ التعديل' : isExpense ? 'تم تسجيل المصروف' : 'تم تسجيل الإيراد')
       onClose()
-    } catch {
-      setError('تعذر الحفظ. تأكد من الاتصال ثم أعد المحاولة.')
+    } catch (err) {
+      const denied = (err as { code?: string })?.code === 'permission-denied'
+      setError(
+        denied && receipt
+          ? 'تعذر حفظ صورة الفاتورة: قواعد الأمان في Firebase لم تُحدَّث بعد للسماح بالفواتير.'
+          : 'تعذر الحفظ. تأكد من الاتصال ثم أعد المحاولة.',
+      )
       setBusy(false)
     }
   }
@@ -171,6 +179,13 @@ export function TxForm({ kind, defaultItemId, editing, onClose }: Props) {
           </span>
           <input value={recordedBy} onChange={(e) => setRecordedBy(e.target.value)} required placeholder="اسمك" autoComplete="name" />
         </label>
+        <ReceiptField
+          txId={editing?.id}
+          hasExisting={Boolean(editing?.hasReceipt)}
+          value={receipt}
+          onChange={setReceipt}
+          by={recordedBy.trim() || user?.email || ''}
+        />
         <label>
           ملاحظات
           <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

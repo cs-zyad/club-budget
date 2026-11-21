@@ -62,10 +62,11 @@ export async function exportWorkbook(stats: Stats, txs: Tx[]): Promise<void> {
       { header: 'التصنيف', key: 'category', width: 18 },
       { header: 'المبلغ', key: 'amount', width: 16, style: { numFmt: MONEY } },
       { header: 'المسجِّل', key: 'recordedBy', width: 18 },
+      { header: 'فاتورة مرفقة', key: 'receipt', width: 13 },
       { header: 'ملاحظات', key: 'notes', width: 30 },
     ]
     styleHeader(ws)
-    for (const t of [...list].sort(byDate)) ws.addRow({ ...t, item: t.itemId ? (names.get(t.itemId) ?? '') : '' })
+    for (const t of [...list].sort(byDate)) ws.addRow({ ...t, item: t.itemId ? (names.get(t.itemId) ?? '') : '', receipt: t.hasReceipt ? 'نعم' : '' })
     const sum = list.reduce((a, t) => a + t.amount, 0)
     const last = ws.addRow({ description: 'الإجمالي', amount: sum })
     last.font = { bold: true }

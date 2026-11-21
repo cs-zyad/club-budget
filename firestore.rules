@@ -19,5 +19,12 @@ service cloud.firestore {
         && request.resource.data.amount > 0;
       allow delete: if request.auth != null;
     }
+    // صور الفواتير (مضغوطة) — مستند لكل عملية بنفس معرّفها
+    match /receipts/{id} {
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.data.data is string
+        && request.resource.data.data.size() < 1000000;
+    }
   }
 }

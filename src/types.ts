@@ -31,8 +31,19 @@ export interface Tx {
   notes: string
   /** اسم الشخص الذي سجّل العملية (يُكتب يدوياً) */
   recordedBy?: string
+  /** توجد صورة فاتورة في مجموعة receipts بنفس المعرّف */
+  hasReceipt?: boolean
   createdAt: number
   createdBy: string
+}
+
+/** صورة الفاتورة (مضغوطة) — تُحفظ منفصلة عن العملية حتى لا تُثقل تحميل الجداول */
+export interface Receipt {
+  data: string // data URL
+  type: string
+  name: string
+  uploadedAt: number
+  by: string
 }
 
 export type TxInput = Omit<Tx, 'id' | 'createdAt' | 'createdBy'> & { id?: string }
